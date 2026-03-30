@@ -1,0 +1,151 @@
+.rd-page {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.rd-back-button {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.rd-back-button:hover {
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+}
+
+.rd-card {
+  margin-top: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 34px;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.08);
+}
+
+.rd-loading {
+  color: #475569;
+  font-weight: 600;
+}
+
+.rd-header {
+  margin-bottom: 24px;
+}
+
+.rd-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.rd-header h2 {
+  margin: 0;
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  line-height: 1.1;
+  color: #0f172a;
+}
+
+.rd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rd-row {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.rd-label {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #64748b;
+}
+
+.rd-value {
+  margin: 8px 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rd-status-row {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px dashed #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rd-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 126px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.rd-status-pending {
+  background: #f59e0b;
+  color: #78350f;
+}
+
+.rd-status-buapproved {
+  background: #2563eb;
+}
+
+.rd-status-l3approved {
+  background: #15803d;
+}
+
+.rd-status-rejected {
+  background: #dc2626;
+}
+
+.rd-status-closed {
+  background: #0f766e;
+}
+
+.rd-status-unknown {
+  background: #6b7280;
+}
+
+@media (max-width: 760px) {
+  .rd-card {
+    padding: 24px;
+    border-radius: 18px;
+  }
+
+  .rd-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rd-value {
+    font-size: 1.08rem;
+  }
+
+  .rd-status-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
