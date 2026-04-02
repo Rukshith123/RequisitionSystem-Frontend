@@ -130,7 +130,7 @@ function CUDashboard() {
                 <tr key={req.id}>
                   <td
                     className="req-id"
-                    onClick={() => navigate(`/requisition/${req.id}`)}
+                    onClick={() => navigate(`/requisition/${req.id}`, { state: { fromDashboard: "/dashboard" } })}
                   >
                     {req.title || req.requisitionTitle || req.jobTitle || req.position || req.postTitle || "Untitled requisition"}
                   </td>

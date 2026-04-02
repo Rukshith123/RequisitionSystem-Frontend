@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ApprovalComments from "../components/ApprovalComments";
 import Layout from "../components/Layout";
-import { getMyApprovals } from "../services/api";
+import { getMyApprovals, getRequisitionById } from "../services/api";
 import {
   syncApprovalComments,
   withApprovalComments
@@ -52,10 +52,7 @@ function RejectedRequests() {
       //  Fetch requisition details
       const detailed = await Promise.all(
         filtered.map(async (item) => {
-          const res = await fetch(
-            `http://localhost:5291/api/requisitions/${item.requisitionId}`
-          );
-          const req = await res.json();
+          const req = await getRequisitionById(item.requisitionId);
 
           return {
             ...req,

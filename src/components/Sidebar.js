@@ -43,21 +43,53 @@ function Sidebar() {
         )}
 
         {user?.role === "BU_MANAGER" && (
-          <p
-            className={isActive("/approvals") ? "active" : ""}
-            onClick={() => navigate("/approvals")}
-          >
-            Pending Approvals
-          </p>
+          <>
+            <p
+              className={isActive("/approvals") ? "active" : ""}
+              onClick={() => navigate("/approvals")}
+            >
+              Pending Approvals
+            </p>
+
+            <p
+              className={isActive("/approved") ? "active" : ""}
+              onClick={() => navigate("/approved")}
+            >
+              Approved
+            </p>
+
+            <p
+              className={isActive("/rejected") ? "active" : ""}
+              onClick={() => navigate("/rejected")}
+            >
+              Rejected
+            </p>
+          </>
         )}
 
         {user?.role === "L3_MANAGER" && (
-          <p
-            className={isActive("/approvals") ? "active" : ""}
-            onClick={() => navigate("/approvals")}
-          >
-            Final Approvals
-          </p>
+          <>
+            <p
+              className={isActive("/approvals") ? "active" : ""}
+              onClick={() => navigate("/approvals")}
+            >
+              Final Approvals
+            </p>
+
+            <p
+              className={isActive("/approved") ? "active" : ""}
+              onClick={() => navigate("/approved")}
+            >
+              Approved
+            </p>
+
+            <p
+              className={isActive("/rejected") ? "active" : ""}
+              onClick={() => navigate("/rejected")}
+            >
+              Rejected
+            </p>
+          </>
         )}
 
         {user?.role === "RECRUITER" && (

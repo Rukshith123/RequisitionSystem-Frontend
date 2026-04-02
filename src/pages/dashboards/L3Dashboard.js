@@ -1,7 +1,7 @@
 import Layout from "../../components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getMyApprovals } from "../../services/api";
+import { getMyApprovals, getPendingApprovals, getRequisitionById } from "../../services/api";
 import "../../styles/Dashboard.css";
 
 function L3Dashboard() {
@@ -20,61 +20,57 @@ function L3Dashboard() {
 
     const fetchStats = async () => {
     try {
-        const user = JSON.parse(localStorage.getItem("user"));
+      const user = JSON.parse(localStorage.getItem("user"));
 
-        // 🔹 Pending (BUApproved)
-        const res = await fetch(
-        `http://localhost:5291/api/approvals/pending?role=${user.role}`
-        );
-        const pendingData = await res.json();
+      // 🔹 Pending (BUApproved)
+      const pendingData = await getPendingApprovals(user.role);
 
-        // 🔹 My approvals (L3 actions)
-        const approvals = await getMyApprovals(user.id);
+      // 🔹 My approvals (L3 actions)
+      const approvals = await getMyApprovals(user.id);
 
-        let approved = 0;
-        let rejected = 0;
+      let approved = 0;
+      let rejected = 0;
 
-        const l3History = approvals.filter((item) => item.approvalLevel === "L3");
+      const l3History = approvals.filter((item) => item.approvalLevel === "L3");
 
-        l3History.forEach((item) => {
+      l3History.forEach((item) => {
         if (item.status === "Approved" && item.approvalLevel === "L3") {
-            approved++;
+          approved++;
         }
         if (item.status === "Rejected" && item.approvalLevel === "L3") {
-            rejected++;
+          rejected++;
         }
-        });
+      });
 
-        const detailedHistory = await Promise.all(
-          l3History
-            .sort((left, right) => new Date(right.actionDate) - new Date(left.actionDate))
-            .slice(0, 6)
-            .map(async (item) => {
-              try {
-                const res = await fetch(`http://localhost:5291/api/requisitions/${item.requisitionId}`);
-                const requisition = await res.json();
+      const detailedHistory = await Promise.all(
+        l3History
+          .sort((left, right) => new Date(right.actionDate) - new Date(left.actionDate))
+          .slice(0, 6)
+          .map(async (item) => {
+            try {
+              const requisition = await getRequisitionById(item.requisitionId);
 
-                return {
-                  ...item,
-                  title: requisition.title,
-                  department: requisition.department
-                };
-              } catch (error) {
-                return item;
-              }
-            })
-        );
+              return {
+                ...item,
+                title: requisition.title,
+                department: requisition.department
+              };
+            } catch (error) {
+              return item;
+            }
+          })
+      );
 
-        setHistory(detailedHistory);
+      setHistory(detailedHistory);
 
-        setStats({
+      setStats({
         pending: pendingData.length,
         approved,
         rejected
-        });
+      });
 
     } catch (error) {
-        console.error(error);
+      console.error(error);
     }
     };
 
@@ -94,7 +90,7 @@ function L3Dashboard() {
           className="stat-card stat-pending"
           onClick={() => navigate("/approvals")}
         >
-          <p className="stat-title">PENDING (L3)</p>
+          <p className="stat-title">PENDING</p>
           <h2 className="stat-value">{stats.pending}</h2>
         </div>
 
@@ -102,7 +98,7 @@ function L3Dashboard() {
           className="stat-card stat-l3"
           onClick={() => navigate("/approved")}
         >
-          <p className="stat-title">APPROVED (L3)</p>
+          <p className="stat-title">APPROVED</p>
           <h2 className="stat-value">{stats.approved}</h2>
         </div>
 
@@ -125,7 +121,7 @@ function L3Dashboard() {
       <section className="active-requisitions">
         <div className="section-header">
           <h3>Recent Final Approval History</h3>
-          <p>Your latest L3 approval decisions</p>
+          <p>Your latest approval decisions</p>
         </div>
 
         {history.length === 0 ? (
@@ -148,7 +144,7 @@ function L3Dashboard() {
                   <tr key={item.id}>
                     <td
                       className="req-id"
-                      onClick={() => navigate(`/requisition/${item.requisitionId}`)}
+                      onClick={() => navigate(`/requisition/${item.requisitionId}`, { state: { fromDashboard: "/dashboard" } })}
                     >
                       {item.title || "Untitled requisition"}
                     </td>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Layout from "../../components/Layout";
 import { useNavigate } from "react-router-dom";
+import { getApprovedRequisitions, getClosedRequisitions } from "../../services/api";
 import "../../styles/Dashboard.css";
 
 function RecruiterDashboard() {
@@ -18,15 +19,9 @@ function RecruiterDashboard() {
 
   const fetchStats = async () => {
     try {
-      const res1 = await fetch(
-        "http://localhost:5291/api/recruiter/requisitions"
-      );
-      const approved = await res1.json();
+      const approved = await getApprovedRequisitions();
 
-      const res2 = await fetch(
-        "http://localhost:5291/api/recruiter/requisitions/closed"
-      );
-      const closedData = await res2.json();
+      const closedData = await getClosedRequisitions();
 
       const approvedHistory = approved.map((item) => ({
         ...item,
@@ -122,7 +117,7 @@ function RecruiterDashboard() {
                   <tr key={`${item.historyStatus}-${item.id}`}>
                     <td
                       className="req-id"
-                      onClick={() => navigate(`/requisition/${item.id}`)}
+                      onClick={() => navigate(`/requisition/${item.id}`, { state: { fromDashboard: "/dashboard" } })}
                     >
                       {item.title || "Untitled requisition"}
                     </td>

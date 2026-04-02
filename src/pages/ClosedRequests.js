@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ApprovalComments from "../components/ApprovalComments";
 import Layout from "../components/Layout";
+import { getClosedRequisitions } from "../services/api";
 import { withApprovalComments } from "../services/approvalComments";
 import "../styles/Dashboard.css";
 import "../styles/approvals.css";
@@ -15,11 +16,7 @@ function ClosedRequests() {
 
   const fetchClosed = async () => {
     try {
-      const res = await fetch(
-        "http://localhost:5291/api/recruiter/requisitions/closed"
-      );
-
-      const result = await res.json();
+      const result = await getClosedRequisitions();
 
       setData(withApprovalComments(result.requisitions)); // backend returns { totalClosed, requisitions }
 

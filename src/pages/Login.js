@@ -1,32 +1,30 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/login.css";
+import { loginUser } from "../services/api";
 
 function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (event) => {
+  const handleLogin = async (event) => {
     event.preventDefault();
 
-    let user;
+    try {
+      const result = await loginUser(username, password);
 
-    if (username === "raj" && password === "raj123") {
-      user = { id: 1, username: "raj", role: "CU_MANAGER" };
-    } else if (username === "amit" && password === "amit123") {
-      user = { id: 2, username: "amit", role: "BU_MANAGER" };
-    } else if (username === "sneha" && password === "sneha123") {
-      user = { id: 3, username: "sneha", role: "L3_MANAGER" };
-    } else if (username === "priya" && password === "priya123") {
-      user = { id: 4, username: "priya", role: "RECRUITER" };
-    } else {
-      alert("Invalid user");
-      return;
+      //store token
+      localStorage.setItem("token", result.token);
+
+      //store user
+      localStorage.setItem("user", JSON.stringify(result.user));
+
+      navigate("/dashboard");
+
+    } catch (error) {
+      alert("Invalid username or password");
     }
-
-    localStorage.setItem("user", JSON.stringify(user));
-    navigate("/dashboard");
   };
 
   return (

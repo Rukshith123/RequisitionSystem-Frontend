@@ -4,6 +4,11 @@
   margin: 0 auto;
 }
 
+.rd-top-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .rd-back-button {
   border: 1px solid #cbd5e1;
   background: #ffffff;

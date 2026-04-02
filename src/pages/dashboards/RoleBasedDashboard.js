@@ -5,8 +5,6 @@ import L3Dashboard from "./L3Dashboard";
 import RecruiterDashboard from "./RecruiterDashboard";
 
 
-// import RecruiterDashboard from "./RecruiterDashboard";
-
 function RoleBasedDashboard() {
   const user = JSON.parse(localStorage.getItem("user"));
 

@@ -1,7 +1,7 @@
 import Layout from "../../components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getMyApprovals } from "../../services/api";
+import { getMyApprovals, getPendingApprovals, getRequisitionById } from "../../services/api";
 import "../../styles/Dashboard.css";
 
 function BUDashboard() {
@@ -23,60 +23,56 @@ function BUDashboard() {
     const user = JSON.parse(localStorage.getItem("user"));
 
     // ✅ 1. Get pending approvals (for BU)
-    const pendingRes = await fetch(
-        `http://localhost:5291/api/approvals/pending?role=${user.role}`
-        );
-        const pendingData = await pendingRes.json();
+    const pendingData = await getPendingApprovals(user.role);
 
-        // ✅ 2. Get approvals done by THIS user
-        const approvalsData = await getMyApprovals(user.id);
+    // ✅ 2. Get approvals done by THIS user
+    const approvalsData = await getMyApprovals(user.id);
 
-        let approved = 0;
-        let rejected = 0;
+    let approved = 0;
+    let rejected = 0;
 
-        const buHistory = approvalsData.filter((item) => item.approvalLevel === "BU");
+    const buHistory = approvalsData.filter((item) => item.approvalLevel === "BU");
 
-        buHistory.forEach((item) => {
-        if (item.status === "Approved" && item.approvalLevel === "BU") {
-            approved++;
-        }
-        if (item.status === "Rejected" && item.approvalLevel === "BU") {
-            rejected++;
-        }
-        });
+    buHistory.forEach((item) => {
+      if (item.status === "Approved" && item.approvalLevel === "BU") {
+        approved++;
+      }
+      if (item.status === "Rejected" && item.approvalLevel === "BU") {
+        rejected++;
+      }
+    });
 
-        const detailedHistory = await Promise.all(
-          buHistory
-            .sort((left, right) => new Date(right.actionDate) - new Date(left.actionDate))
-            .slice(0, 6)
-            .map(async (item) => {
-              try {
-                const res = await fetch(`http://localhost:5291/api/requisitions/${item.requisitionId}`);
-                const requisition = await res.json();
+    const detailedHistory = await Promise.all(
+      buHistory
+        .sort((left, right) => new Date(right.actionDate) - new Date(left.actionDate))
+        .slice(0, 6)
+        .map(async (item) => {
+          try {
+            const requisition = await getRequisitionById(item.requisitionId);
 
-                return {
-                  ...item,
-                  title: requisition.title,
-                  department: requisition.department
-                };
-              } catch (error) {
-                return item;
-              }
-            })
-        );
+            return {
+              ...item,
+              title: requisition.title,
+              department: requisition.department
+            };
+          } catch (error) {
+            return item;
+          }
+        })
+    );
 
-        setHistory(detailedHistory);
+    setHistory(detailedHistory);
 
-        setStats({
-        pending: pendingData.length,
-        approved,
-        rejected
-        });
+    setStats({
+      pending: pendingData.length,
+      approved,
+      rejected
+    });
 
-    } catch (error) {
-        console.error("Error fetching stats:", error);
-    }
-    };
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+  }
+};
 
   return (
     <Layout>
@@ -96,12 +92,12 @@ function BUDashboard() {
         </div>
 
         <div className="stat-card stat-bu" onClick={() => navigate("/approved")}>
-          <p className="stat-title">APPROVED (BU)</p>
+          <p className="stat-title">APPROVED</p>
           <h2 className="stat-value">{stats.approved}</h2>
         </div>
 
         <div className="stat-card stat-rejected" onClick={() => navigate("/rejected")}>
-          <p className="stat-title">REJECTED (BU)</p>
+          <p className="stat-title">REJECTED</p>
           <h2 className="stat-value">{stats.rejected}</h2>
         </div>
       </div>
@@ -116,7 +112,7 @@ function BUDashboard() {
       <section className="active-requisitions">
         <div className="section-header">
           <h3>Recent Approval History</h3>
-          <p>Your latest BU approval decisions</p>
+          <p>Your latest approval decisions</p>
         </div>
 
         {history.length === 0 ? (
@@ -139,7 +135,7 @@ function BUDashboard() {
                   <tr key={item.id}>
                     <td
                       className="req-id"
-                      onClick={() => navigate(`/requisition/${item.requisitionId}`)}
+                      onClick={() => navigate(`/requisition/${item.requisitionId}`, { state: { fromDashboard: "/dashboard" } })}
                     >
                       {item.title || "Untitled requisition"}
                     </td>

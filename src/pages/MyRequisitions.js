@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import ApprovalComments from "../components/ApprovalComments";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { getMyRequisitions } from "../services/api";
 import { withApprovalComments } from "../services/approvalComments";
 import Layout from "../components/Layout";
@@ -10,7 +10,6 @@ import "../styles/approvals.css";
 function MyRequisitions() {
   const [requisitions, setRequisitions] = useState([]);
 
-  const navigate = useNavigate();
   const location = useLocation();
 
   const queryParams = new URLSearchParams(location.search);
@@ -31,10 +30,6 @@ function MyRequisitions() {
   };
   const pageTitle = titleByStatus[statusFilter] || "My Requisitions";
   const pageDescription = descriptionByStatus[statusFilter] || "Manage and monitor your requisitions with clear status tracking, clean details, and quick access to each request.";
-
-  const handleClick = (id) => {
-    navigate(`/requisition/${id}`);
-  };
 
   const handleDelete = async (id) => {
     try {
@@ -88,11 +83,7 @@ function MyRequisitions() {
             <article key={req.id} className="request-card my-req-card">
               <div className="request-card-header">
                 <div>
-                  <h3
-                    className="approval-title my-req-title-link"
-                    onClick={() => handleClick(req.id)}
-                    title="View requisition details"
-                  >
+                  <h3 className="approval-title">
                     {req.title || req.requisitionTitle || req.jobTitle || req.position || req.postTitle || "Untitled requisition"}
                   </h3>
                   <p className="my-req-subtitle">Requisition ID #{req.id}</p>

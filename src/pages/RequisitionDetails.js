@@ -1,28 +1,52 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import ApprovalComments from "../components/ApprovalComments";
 import Layout from "../components/Layout";
+import { getRequisitionById } from "../services/api";
 import { getApprovalComments } from "../services/approvalComments";
 import "../styles/approvals.css";
 import "../styles/requisitionDetails.css";
 
 function RequisitionDetails() {
   const { id } = useParams();
-  const [data, setData] = useState(null);
+  const location = useLocation();
   const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+
+  const getDashboardRoute = () => {
+    if (location.state?.fromDashboard) {
+      return location.state.fromDashboard;
+    }
+
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (user?.role === "CU_MANAGER") return "/dashboard";
+    if (user?.role === "BU_MANAGER") return "/dashboard";
+    if (user?.role === "L3_MANAGER") return "/dashboard";
+    if (user?.role === "RECRUITER") return "/dashboard";
+
+    return "/dashboard";
+  };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [id]);
 
   const fetchData = async () => {
-    const res = await fetch(`http://localhost:5291/api/requisitions/${id}`);
-    const result = await res.json();
-    setData({
-      ...result,
-      approvalComments: getApprovalComments(result.id)
-    });
+    setError("");
+
+    try {
+      const result = await getRequisitionById(id);
+      setData({
+        ...result,
+        approvalComments: getApprovalComments(result.id)
+      });
+    } catch (fetchError) {
+      setData(null);
+      setError(fetchError.message || "Unable to load requisition details.");
+    }
   };
 
   const getStatusClass = (status) => {
@@ -39,7 +63,9 @@ function RequisitionDetails() {
     return (
       <Layout>
         <div className="rd-page">
-          <div className="rd-card rd-loading">Loading requisition details...</div>
+          <div className="rd-card rd-loading">
+            {error || "Loading requisition details..."}
+          </div>
         </div>
       </Layout>
     );
@@ -48,7 +74,9 @@ function RequisitionDetails() {
   return (
     <Layout>
       <div className="rd-page">
-        <button className="rd-back-button" onClick={() => navigate("/my")}>Back</button>
+        <div className="rd-top-actions">
+          <button className="rd-back-button" onClick={() => navigate(getDashboardRoute())}>Back</button>
+        </div>
 
         <section className="rd-card">
           <div className="rd-header">

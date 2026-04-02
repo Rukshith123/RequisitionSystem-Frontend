@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import ApprovalComments from "../components/ApprovalComments";
-import { approveRequisition, rejectRequisition } from "../services/api";
+import { approveRequisition, getPendingApprovals, rejectRequisition } from "../services/api";
 import {
   saveApprovalComment,
   withApprovalComments
@@ -46,11 +46,7 @@ function Approvals() {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
 
-      const res = await fetch(
-        `http://localhost:5291/api/approvals/pending?role=${user.role}`
-      );
-
-      const result = await res.json();
+      const result = await getPendingApprovals(user.role);
       setData(withApprovalComments(result));
 
     } catch (error) {
