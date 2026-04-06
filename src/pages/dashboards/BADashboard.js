@@ -2,9 +2,26 @@ import Layout from "../../components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getMyApprovals, getPendingApprovals, getRequisitionById } from "../../services/api";
+import JDViewerModal from "../../components/JDViewerModal";
+import {
+  isApprovedStatus,
+  isFinalApprovalLevel,
+  isRejectedStatus,
+  sortByLatestRequisition
+} from "../../services/approvalHelpers";
+import { formatStatus } from "../../utils";
 import "../../styles/Dashboard.css";
 
-function L3Dashboard() {
+const fmt = (d) => d ? new Date(d).toLocaleString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true
+}) : "—";
+
+function BADashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const [stats, setStats] = useState({
@@ -13,6 +30,7 @@ function L3Dashboard() {
     rejected: 0
     });
   const [history, setHistory] = useState([]);
+  const [selectedJDRequisition, setSelectedJDRequisition] = useState(null);
 
   useEffect(() => {
     fetchStats();
@@ -22,29 +40,19 @@ function L3Dashboard() {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
 
-      // 🔹 Pending (BUApproved)
+      // Pending (BUApproved)
       const pendingData = await getPendingApprovals(user.role);
+      const pendingCount = (pendingData || []).length;
 
-      // 🔹 My approvals (L3 actions)
+      // My approvals (BA actions)
       const approvals = await getMyApprovals(user.id);
 
-      let approved = 0;
-      let rejected = 0;
-
-      const l3History = approvals.filter((item) => item.approvalLevel === "L3");
-
-      l3History.forEach((item) => {
-        if (item.status === "Approved" && item.approvalLevel === "L3") {
-          approved++;
-        }
-        if (item.status === "Rejected" && item.approvalLevel === "L3") {
-          rejected++;
-        }
-      });
+      const baHistory = approvals.filter((item) => isFinalApprovalLevel(item.approvalLevel));
+      const approved = baHistory.filter((item) => isApprovedStatus(item.status)).length;
+      const rejected = baHistory.filter((item) => isRejectedStatus(item.status)).length;
 
       const detailedHistory = await Promise.all(
-        l3History
-          .sort((left, right) => new Date(right.actionDate) - new Date(left.actionDate))
+        sortByLatestRequisition(baHistory)
           .slice(0, 6)
           .map(async (item) => {
             try {
@@ -53,7 +61,9 @@ function L3Dashboard() {
               return {
                 ...item,
                 title: requisition.title,
-                department: requisition.department
+                department: requisition.department,
+                hireByDate: requisition.hireByDate,
+                jdContent: requisition.JDContent || requisition.jdContent || ""
               };
             } catch (error) {
               return item;
@@ -64,7 +74,7 @@ function L3Dashboard() {
       setHistory(detailedHistory);
 
       setStats({
-        pending: pendingData.length,
+        pending: pendingCount,
         approved,
         rejected
       });
@@ -77,7 +87,7 @@ function L3Dashboard() {
   return (
     <Layout>
       <section className="dashboard-intro">
-        <h1>L3 Final Approval View</h1>
+        <h1>BA Final Approval View</h1>
         <p>
           Track final-stage approvals, close pending decisions quickly, and
           maintain a smooth hiring process across teams.
@@ -135,8 +145,10 @@ function L3Dashboard() {
                   <th>ID</th>
                   <th>Department</th>
                   <th>Decision</th>
+                  <th>Hire By Date</th>
                   <th>Comment</th>
                   <th>Action Date</th>
+                  <th>JD</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,11 +164,25 @@ function L3Dashboard() {
                     <td>{item.department || "-"}</td>
                     <td>
                       <span className={`status-badge status-${(item.status || "").toLowerCase()}`}>
-                        {item.status || "Unknown"}
+                        {formatStatus(item.status) || "Unknown"}
                       </span>
                     </td>
+                    <td>{fmt(item.hireByDate)}</td>
                     <td>{item.comments || "-"}</td>
-                    <td>{item.actionDate ? new Date(item.actionDate).toLocaleString() : "-"}</td>
+                    <td>{fmt(item.actionDate)}</td>
+                    <td>
+                      {(item.jdContent || "").trim() ? (
+                        <button
+                          type="button"
+                          className="view-jd-button"
+                          onClick={() => setSelectedJDRequisition(item)}
+                        >
+                          View JD
+                        </button>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -164,8 +190,15 @@ function L3Dashboard() {
           </div>
         )}
       </section>
+
+      {selectedJDRequisition && (
+        <JDViewerModal
+          requisition={selectedJDRequisition}
+          onClose={() => setSelectedJDRequisition(null)}
+        />
+      )}
     </Layout>
   );
 }
 
-export default L3Dashboard;
+export default BADashboard;

@@ -2,7 +2,18 @@ import Layout from "../../components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getMyRequisitions } from "../../services/api";
+import { filterRequisitionsForCurrentUser } from "../../services/requisitionAccess";
+import { formatStatus } from "../../utils";
 import "../../styles/Dashboard.css";
+
+const fmt = (d) => d ? new Date(d).toLocaleString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true
+}) : "—";
 
 function CUDashboard() {
   const navigate = useNavigate();
@@ -13,6 +24,7 @@ function CUDashboard() {
     pending: 0,
     buApproved: 0,
     l3Approved: 0,
+    onHold: 0,
     closed: 0,
     rejected: 0
   });
@@ -23,10 +35,11 @@ function CUDashboard() {
   }, []);
 
   const fetchStats = async () => {
-    const data = await getMyRequisitions(user.id);
-    const sorted = [...data].sort((a, b) => b.id - a.id);
+    const data = await getMyRequisitions(user.username);
+    const scopedData = filterRequisitionsForCurrentUser(data, user);
+    const sorted = [...scopedData].sort((a, b) => b.id - a.id);
     setRequisitions(sorted);
-    calculateStats(data);
+    calculateStats(scopedData);
   };
 
   const calculateStats = (data) => {
@@ -34,6 +47,7 @@ function CUDashboard() {
     let pending = 0;
     let buApproved = 0;
     let l3Approved = 0;
+    let onHold = 0;
     let closed = 0;
     let rejected = 0;
 
@@ -41,6 +55,7 @@ function CUDashboard() {
       if (item.status === "Pending") pending++;
       if (item.status === "BUApproved") buApproved++;
       if (item.status === "L3Approved") l3Approved++;
+      if (item.status === "OnHold" || item.status === "On Hold") onHold++;
       if (item.status === "Closed") closed++;
       if (item.status === "Rejected") rejected++;
     });
@@ -50,6 +65,7 @@ function CUDashboard() {
       pending,
       buApproved,
       l3Approved,
+      onHold,
       closed,
       rejected
     });
@@ -85,6 +101,10 @@ function CUDashboard() {
       <div className="stat-card stat-l3" onClick={() => navigate("/my?status=L3Approved")}>
         <p className="stat-title">L3 APPROVED</p>
         <h2 className="stat-value">{stats.l3Approved}</h2>
+      </div>
+      <div className="stat-card stat-pending" onClick={() => navigate("/my?status=OnHold") }>
+        <p className="stat-title">ON HOLD</p>
+        <h2 className="stat-value">{stats.onHold}</h2>
       </div>
       <div className="stat-card stat-closed" onClick={() => navigate("/my?status=Closed") }>
         <p className="stat-title">CLOSED</p>
@@ -122,6 +142,7 @@ function CUDashboard() {
                 <th>Skillset</th>
                 <th>Experience</th>
                 <th>Positions</th>
+                <th>Hire By Date</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -139,9 +160,10 @@ function CUDashboard() {
                   <td>{req.skillset || "-"}</td>
                   <td>{req.experienceLevel || "-"}</td>
                   <td>{req.numberOfPositions ?? "-"}</td>
+                  <td>{fmt(req.hireByDate)}</td>
                   <td>
-                    <span className={`status-badge status-${(req.status || "").toLowerCase()}`}>
-                      {req.status || "Unknown"}
+                    <span className={`status-badge status-${(req.status || "").toLowerCase().replace(/\s+/g, "")}`}>
+                      {formatStatus(req.status) || "Unknown"}
                     </span>
                   </td>
                 </tr>

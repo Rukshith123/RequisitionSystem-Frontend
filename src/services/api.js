@@ -40,9 +40,9 @@ export const getPendingApprovals = async (role) => {
 };
 
 
-export const createRequisition = async (data, createdBy) => {
+export const createRequisition = async (data, createdByUserId) => {
   const response = await fetch(
-    `${BASE_URL}/requisitions?createdBy=${createdBy}`, 
+    `${BASE_URL}/requisitions?createdBy=${Number(createdByUserId)}`,
     {
       method: "POST",
       headers: getAuthHeader(),
@@ -53,10 +53,87 @@ export const createRequisition = async (data, createdBy) => {
   return response.json();
 };
 
-
-export const getMyRequisitions = async (createdBy) => {
+export const cancelRequisition = async (requisitionId) => {
   const response = await fetch(
-    `http://localhost:5291/api/requisitions/my?createdBy=${createdBy}`, {
+    `${BASE_URL}/requisitions/${requisitionId}/cancel`,
+    {
+      method: "PUT",
+      headers: getAuthHeader()
+    }
+  );
+
+  if (!response.ok) {
+    let message = "Failed to cancel requisition";
+
+    try {
+      const payload = await response.json();
+      message = payload?.message || payload?.error || message;
+    } catch (error) {
+      const fallbackText = await response.text();
+      if (fallbackText) {
+        message = fallbackText;
+      }
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+};
+
+export const getAllRequisitions = async () => {
+  const response = await fetch(`${BASE_URL}/requisitions`, {
+    headers: getAuthHeader()
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch requisitions");
+  }
+
+  return response.json();
+};
+
+export const getCancelledRequisitions = async () => {
+  const response = await fetch(`${BASE_URL}/requisitions/cancelled`, {
+    headers: getAuthHeader()
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch cancelled requisitions");
+  }
+
+  return response.json();
+};
+
+export const deleteRequisitionPermanently = async (requisitionId) => {
+  const response = await fetch(`${BASE_URL}/requisitions/${requisitionId}/permanent`, {
+    method: "DELETE",
+    headers: getAuthHeader()
+  });
+
+  if (!response.ok) {
+    let message = "Failed to permanently delete requisition";
+
+    try {
+      const payload = await response.json();
+      message = payload?.message || payload?.error || message;
+    } catch (error) {
+      const fallbackText = await response.text();
+      if (fallbackText) {
+        message = fallbackText;
+      }
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+};
+
+
+export const getMyRequisitions = async (createdByUsername) => {
+  const response = await fetch(
+    `${BASE_URL}/requisitions/my?createdBy=${encodeURIComponent(createdByUsername)}`, {
      headers: getAuthHeader()
      });
 
@@ -84,7 +161,7 @@ export const approveRequisition = async (id, approverId, comments) => {
       method: "POST",
       headers: getAuthHeader(),
       body: JSON.stringify({
-        approverId,
+        approverId: Number(approverId),
         comments
       })
     }
@@ -93,6 +170,27 @@ export const approveRequisition = async (id, approverId, comments) => {
   if (!res.ok) throw new Error("Approve failed");
 
   return res.json();
+};
+
+export const approveOnHoldRequisition = async (id, approverId) => {
+  const res = await fetch(
+    `${BASE_URL}/approvals/${id}/approve`,
+    {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: JSON.stringify({
+        approverId: Number(approverId)
+      })
+    }
+  );
+
+  if (!res.ok) throw new Error("Approve failed");
+
+  try {
+    return await res.json();
+  } catch (error) {
+    return { actionDate: new Date().toISOString() };
+  }
 };
 
 export const rejectRequisition = async (id, approverId, comments) => {
@@ -111,6 +209,39 @@ export const rejectRequisition = async (id, approverId, comments) => {
   if (!res.ok) throw new Error("Reject failed");
 
   return res.json();
+};
+
+export const holdRequisition = async (id, approverId, comments) => {
+  const res = await fetch(
+    `${BASE_URL}/approvals/${id}/hold`,
+    {
+      method: "PUT",
+      headers: getAuthHeader(),
+      body: JSON.stringify({ approverId: Number(approverId), comments })
+    }
+  );
+
+  if (!res.ok) {
+    let message = "Hold failed";
+
+    try {
+      const payload = await res.json();
+      message = payload?.message || payload?.error || message;
+    } catch (error) {
+      const text = await res.text();
+      if (text) {
+        message = text;
+      }
+    }
+
+    throw new Error(message);
+  }
+
+  try {
+    return await res.json();
+  } catch (error) {
+    return { status: "OnHold", actionDate: new Date().toISOString() };
+  }
 };
 
 export const closeRequisition = async (id) => {

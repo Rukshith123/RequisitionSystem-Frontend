@@ -14,11 +14,8 @@ function Login() {
     try {
       const result = await loginUser(username, password);
 
-      //store token
-      localStorage.setItem("token", result.token);
-
-      //store user
-      localStorage.setItem("user", JSON.stringify(result.user));
+      localStorage.setItem("token", result.token || "");
+      localStorage.setItem("user", JSON.stringify(result));
 
       navigate("/dashboard");
 

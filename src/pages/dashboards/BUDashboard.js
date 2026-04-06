@@ -2,11 +2,21 @@ import Layout from "../../components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getMyApprovals, getPendingApprovals, getRequisitionById } from "../../services/api";
+import JDViewerModal from "../../components/JDViewerModal";
+import { formatStatus } from "../../utils";
 import "../../styles/Dashboard.css";
+
+const fmt = (d) => d ? new Date(d).toLocaleString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true
+}) : "—";
 
 function BUDashboard() {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user"));
 
   const [stats, setStats] = useState({
     pending: 0,
@@ -14,9 +24,26 @@ function BUDashboard() {
     rejected: 0
     });
   const [history, setHistory] = useState([]);
+  const [selectedJDRequisition, setSelectedJDRequisition] = useState(null);
   useEffect(() => {
     fetchStats();
     }, []);
+
+    const getBuDepartment = (user) => {
+      if (user?.department) {
+        return user.department;
+      }
+
+      if (user?.username === "madan") {
+        return "Nexer EA";
+      }
+
+      if (user?.username === "deepa") {
+        return "Nexer Pvt Ltd";
+      }
+
+      return "";
+    };
 
     const fetchStats = async () => {
   try {
@@ -24,6 +51,17 @@ function BUDashboard() {
 
     // ✅ 1. Get pending approvals (for BU)
     const pendingData = await getPendingApprovals(user.role);
+    console.log("BU pending requisitions response:", pendingData);
+
+    const department = getBuDepartment(user);
+    const filteredPendingData = (pendingData || []).filter((req) => {
+      if (!department) {
+        return true;
+      }
+
+      return req.creator?.department === department || req.creatorDepartment === department;
+    });
+    const pendingCount = filteredPendingData.length;
 
     // ✅ 2. Get approvals done by THIS user
     const approvalsData = await getMyApprovals(user.id);
@@ -53,7 +91,9 @@ function BUDashboard() {
             return {
               ...item,
               title: requisition.title,
-              department: requisition.department
+              department: requisition.department,
+                hireByDate: requisition.hireByDate,
+              jdContent: requisition.JDContent || requisition.jdContent || ""
             };
           } catch (error) {
             return item;
@@ -64,7 +104,7 @@ function BUDashboard() {
     setHistory(detailedHistory);
 
     setStats({
-      pending: pendingData.length,
+      pending: pendingCount,
       approved,
       rejected
     });
@@ -126,8 +166,10 @@ function BUDashboard() {
                   <th>ID</th>
                   <th>Department</th>
                   <th>Decision</th>
+                  <th>Hire By Date</th>
                   <th>Comment</th>
                   <th>Action Date</th>
+                  <th>JD</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,11 +185,25 @@ function BUDashboard() {
                     <td>{item.department || "-"}</td>
                     <td>
                       <span className={`status-badge status-${(item.status || "").toLowerCase()}`}>
-                        {item.status || "Unknown"}
+                        {formatStatus(item.status) || "Unknown"}
                       </span>
                     </td>
+                    <td>{fmt(item.hireByDate)}</td>
                     <td>{item.comments || "-"}</td>
-                    <td>{item.actionDate ? new Date(item.actionDate).toLocaleString() : "-"}</td>
+                    <td>{fmt(item.actionDate)}</td>
+                    <td>
+                      {(item.jdContent || "").trim() ? (
+                        <button
+                          type="button"
+                          className="view-jd-button"
+                          onClick={() => setSelectedJDRequisition(item)}
+                        >
+                          View JD
+                        </button>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -155,6 +211,13 @@ function BUDashboard() {
           </div>
         )}
       </section>
+
+      {selectedJDRequisition && (
+        <JDViewerModal
+          requisition={selectedJDRequisition}
+          onClose={() => setSelectedJDRequisition(null)}
+        />
+      )}
     </Layout>
   );
 }

@@ -22,7 +22,7 @@ function Dashboard() {
   const fetchStats = async () => {
     const user = JSON.parse(localStorage.getItem("user"));
 
-    const data = await getMyRequisitions(user.id);
+    const data = await getMyRequisitions(user.username);
 
     calculateStats(data);
   };
@@ -98,8 +98,8 @@ function Dashboard() {
           </>
         )}
 
-        {/* L3 Manager Actions */}
-        {user?.role === "L3_MANAGER" && (
+        {/* BA Manager Actions */}
+        {user?.role === "BA_MANAGER" && (
           <>
             <div className="card" onClick={() => navigate("/approvals")}>
               View Final Approvals
@@ -108,7 +108,7 @@ function Dashboard() {
         )}
 
         {/* Recruiter Actions */}
-        {user?.role === "RECRUITER" && (
+        {user?.role === "Recruiter" && (
           <>
             <div className="card">
               View Approved Requisitions

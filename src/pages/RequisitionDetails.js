@@ -5,8 +5,18 @@ import ApprovalComments from "../components/ApprovalComments";
 import Layout from "../components/Layout";
 import { getRequisitionById } from "../services/api";
 import { getApprovalComments } from "../services/approvalComments";
+import { formatStatus } from "../utils";
 import "../styles/approvals.css";
 import "../styles/requisitionDetails.css";
+
+const fmt = (d) => d ? new Date(d).toLocaleString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true
+}) : "—";
 
 function RequisitionDetails() {
   const { id } = useParams();
@@ -24,8 +34,8 @@ function RequisitionDetails() {
 
     if (user?.role === "CU_MANAGER") return "/dashboard";
     if (user?.role === "BU_MANAGER") return "/dashboard";
-    if (user?.role === "L3_MANAGER") return "/dashboard";
-    if (user?.role === "RECRUITER") return "/dashboard";
+    if (user?.role === "BA_MANAGER") return "/dashboard";
+    if (user?.role === "Recruiter") return "/dashboard";
 
     return "/dashboard";
   };
@@ -39,6 +49,7 @@ function RequisitionDetails() {
 
     try {
       const result = await getRequisitionById(id);
+      console.log("Requisition details payload:", result);
       setData({
         ...result,
         approvalComments: getApprovalComments(result.id)
@@ -58,6 +69,13 @@ function RequisitionDetails() {
     if (normalizedStatus === "closed") return "rd-status-closed";
     return "rd-status-unknown";
   };
+
+  const submittedBy = (typeof data?.createdBy === "string" && data.createdBy.trim())
+    || data?.creator?.username
+    || data?.creator?.name
+    || data?.Creator?.Username
+    || data?.Creator?.Name
+    || "Unknown";
 
   if (!data) {
     return (
@@ -81,6 +99,9 @@ function RequisitionDetails() {
         <section className="rd-card">
           <div className="rd-header">
             <p className="rd-eyebrow">Requisition</p>
+            <p style={{ fontSize: "13px", color: "#6b7280" }}>
+              Submitted by: {submittedBy}  ·  {fmt(data.createdAt)}
+            </p>
             <h2>{data.title || "Untitled requisition"}</h2>
           </div>
 
@@ -106,7 +127,7 @@ function RequisitionDetails() {
           <div className="rd-status-row">
             <p className="rd-label">Status</p>
             <span className={`rd-status-badge ${getStatusClass(data.status)}`}>
-              {data.status || "Unknown"}
+              {formatStatus(data.status) || "Unknown"}
             </span>
           </div>
 

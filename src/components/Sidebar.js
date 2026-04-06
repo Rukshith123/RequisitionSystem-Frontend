@@ -6,9 +6,12 @@ function Sidebar() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const location = useLocation();
+  const approvalStatus = new URLSearchParams(location.search).get("status");
   const isActive = (path) => {
     return location.pathname === path;
   };
+  const isPendingApprovalsActive = isActive("/approvals") && approvalStatus !== "OnHold";
+  const isOnHoldActive = isActive("/approvals") && approvalStatus === "OnHold";
 
   return (
     <div className="sidebar">
@@ -45,13 +48,20 @@ function Sidebar() {
         {user?.role === "BU_MANAGER" && (
           <>
             <p
-              className={isActive("/approvals") ? "active" : ""}
+              className={isPendingApprovalsActive ? "active" : ""}
               onClick={() => navigate("/approvals")}
             >
               Pending Approvals
             </p>
 
             <p
+              className={isOnHoldActive ? "active" : ""}
+              onClick={() => navigate("/approvals?status=OnHold")}
+            >
+              On Hold
+            </p>
+
+            <p
               className={isActive("/approved") ? "active" : ""}
               onClick={() => navigate("/approved")}
             >
@@ -67,16 +77,23 @@ function Sidebar() {
           </>
         )}
 
-        {user?.role === "L3_MANAGER" && (
+        {user?.role === "BA_MANAGER" && (
           <>
             <p
-              className={isActive("/approvals") ? "active" : ""}
+              className={isPendingApprovalsActive ? "active" : ""}
               onClick={() => navigate("/approvals")}
             >
               Final Approvals
             </p>
 
             <p
+              className={isOnHoldActive ? "active" : ""}
+              onClick={() => navigate("/approvals?status=OnHold")}
+            >
+              On Hold
+            </p>
+
+            <p
               className={isActive("/approved") ? "active" : ""}
               onClick={() => navigate("/approved")}
             >
@@ -92,7 +109,7 @@ function Sidebar() {
           </>
         )}
 
-        {user?.role === "RECRUITER" && (
+        {user?.role === "Recruiter" && (
           <>
             <p
               className={isActive("/approved") ? "active" : ""}

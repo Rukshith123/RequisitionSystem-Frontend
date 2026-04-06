@@ -3,6 +3,11 @@ import ApprovalComments from "../components/ApprovalComments";
 import Layout from "../components/Layout";
 import { getClosedRequisitions } from "../services/api";
 import { withApprovalComments } from "../services/approvalComments";
+import {
+  normalizeFinalStatusLabel,
+  sortByLatestRequisition
+} from "../services/approvalHelpers";
+import { formatStatus } from "../utils";
 import "../styles/Dashboard.css";
 import "../styles/approvals.css";
 
@@ -18,7 +23,8 @@ function ClosedRequests() {
     try {
       const result = await getClosedRequisitions();
 
-      setData(withApprovalComments(result.requisitions)); // backend returns { totalClosed, requisitions }
+      const sorted = sortByLatestRequisition(result.requisitions || []);
+      setData(withApprovalComments(sorted)); // backend returns { totalClosed, requisitions }
 
     } catch (error) {
       console.error("Error fetching closed requests:", error);
@@ -37,11 +43,15 @@ function ClosedRequests() {
       ) : (
         <div className="request-list">
           {data.map((item) => (
+            (() => {
+              const statusLabel = normalizeFinalStatusLabel(item.status);
+
+              return (
             <article key={item.id} className="approval-card request-card">
               <div className="request-card-header">
                 <h3 className="approval-title">{item.title || "Untitled requisition"}</h3>
-                <span className={`status-badge status-${(item.status || "unknown").toLowerCase()}`}>
-                  {item.status || "Unknown"}
+                <span className={`status-badge status-${(statusLabel || "unknown").toLowerCase()}`}>
+                  {formatStatus(statusLabel)}
                 </span>
               </div>
 
@@ -66,6 +76,8 @@ function ClosedRequests() {
 
               <ApprovalComments comments={item.approvalComments} />
             </article>
+              );
+            })()
           ))}
         </div>
       )}
