@@ -54,10 +54,10 @@ function CUDashboard() {
     data.forEach((item) => {
       if (item.status === "Pending") pending++;
       if (item.status === "BUApproved") buApproved++;
-      if (item.status === "L3Approved") l3Approved++;
-      if (item.status === "OnHold" || item.status === "On Hold") onHold++;
+      if (item.status === "BAApproved" || item.status === "L3Approved") l3Approved++;
+      if (item.status === "OnHold" || item.status === "On Hold" || item.status === "BUOnHold" || item.status === "BAOnHold") onHold++;
       if (item.status === "Closed") closed++;
-      if (item.status === "Rejected") rejected++;
+      if (item.status === "Rejected" || item.status === "BURejected" || item.status === "BARejected") rejected++;
     });
 
     setStats({
@@ -98,11 +98,11 @@ function CUDashboard() {
         <h2 className="stat-value">{stats.buApproved}</h2>
       </div>
 
-      <div className="stat-card stat-l3" onClick={() => navigate("/my?status=L3Approved")}>
-        <p className="stat-title">L3 APPROVED</p>
+      <div className="stat-card stat-l3" onClick={() => navigate("/my?status=BAApproved")}>
+        <p className="stat-title">BA APPROVED</p>
         <h2 className="stat-value">{stats.l3Approved}</h2>
       </div>
-      <div className="stat-card stat-pending" onClick={() => navigate("/my?status=OnHold") }>
+      <div className="stat-card stat-hold" onClick={() => navigate("/my?status=OnHold") }>
         <p className="stat-title">ON HOLD</p>
         <h2 className="stat-value">{stats.onHold}</h2>
       </div>

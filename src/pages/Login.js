@@ -14,8 +14,18 @@ function Login() {
     try {
       const result = await loginUser(username, password);
 
-      localStorage.setItem("token", result.token || "");
-      localStorage.setItem("user", JSON.stringify(result));
+      // Token is set as an httpOnly cookie by the backend — never stored in JS.
+      // Only non-sensitive profile data is stored for UI use.
+      const raw = result.user ?? result;
+      const user = {
+        id: raw.id ?? raw.Id,
+        username: raw.username ?? raw.Username,
+        role: raw.role ?? raw.Role,
+        department: raw.department ?? raw.Department,
+      };
+
+      localStorage.removeItem("token"); // remove any legacy token left from previous sessions
+      localStorage.setItem("user", JSON.stringify(user));
 
       navigate("/dashboard");
 

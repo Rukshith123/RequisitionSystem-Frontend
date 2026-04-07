@@ -80,7 +80,18 @@ function RejectedRequests() {
         })
       );
 
-      setData(withApprovalComments(sortByLatestRequisition(detailed)));
+      // Deduplicate by requisitionId — keep only the latest entry per requisition
+      const deduped = Object.values(
+        detailed.reduce((acc, item) => {
+          const existing = acc[item.id];
+          if (!existing || new Date(item.actionDate) > new Date(existing.actionDate)) {
+            acc[item.id] = item;
+          }
+          return acc;
+        }, {})
+      );
+
+      setData(withApprovalComments(sortByLatestRequisition(deduped)));
 
     } catch (error) {
       console.error(error);

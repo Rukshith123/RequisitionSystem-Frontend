@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import ApprovalComments from "../components/ApprovalComments";
 import { useLocation } from "react-router-dom";
 import {
-  cancelRequisition,
   deleteRequisitionPermanently,
   getCancelledRequisitions,
   getMyRequisitions,
@@ -31,12 +30,12 @@ function MyRequisitions() {
   const [selectedRequisition, setSelectedRequisition] = useState(null);
   const [isLoadingLatestForModal, setIsLoadingLatestForModal] = useState(false);
   const [modalError, setModalError] = useState("");
-  const [isCancelling, setIsCancelling] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [isDeletingPermanently, setIsDeletingPermanently] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [expandedCancelledId, setExpandedCancelledId] = useState(null);
 
   const location = useLocation();
 
@@ -75,17 +74,36 @@ function MyRequisitions() {
     return "#94a3b8";
   };
 
-  const getBuStatus = (reqStatus) => {
+  const getRejectionLevel = (req) => {
+    if (req.status !== "Rejected") return null;
+    const comments = req.approvalComments || [];
+    const rejectionComment = comments.find(
+      (c) => (c.status || "").toLowerCase() === "rejected"
+    );
+    if (!rejectionComment) return null;
+    const level = (rejectionComment.approvalLevel || "").toUpperCase();
+    if (level === "BA") return "BA";
+    if (level === "BU") return "BU";
+    return null;
+  };
+
+  const getBuStatus = (reqStatus, rejectBy, holdBy) => {
     if (["BUApproved", "BAApproved", "Closed"].includes(reqStatus)) return "Approved";
-    if (reqStatus === "Rejected") return "Rejected";
-    if (reqStatus === "OnHold" || reqStatus === "On Hold") return "On Hold";
+    if (reqStatus === "BURejected" || (reqStatus === "Rejected" && rejectBy === "BU")) return "Rejected";
+    if (reqStatus === "BARejected" || (reqStatus === "Rejected" && rejectBy === "BA")) return "Approved";
+    if (reqStatus === "BUOnHold" || (reqStatus === "OnHold" && holdBy === "BU")) return "On Hold";
+    if (reqStatus === "BAOnHold" || (reqStatus === "OnHold" && holdBy === "BA")) return "Approved";
+    if (reqStatus === "On Hold") return "On Hold";
     return "Pending";
   };
 
-  const getBaStatus = (reqStatus) => {
+  const getBaStatus = (reqStatus, rejectBy, holdBy) => {
     if (["BAApproved", "Closed"].includes(reqStatus)) return "Approved";
-    if (reqStatus === "Rejected") return "Rejected";
-    if (reqStatus === "OnHold" || reqStatus === "On Hold") return "On Hold";
+    if (reqStatus === "BARejected" || (reqStatus === "Rejected" && rejectBy === "BA")) return "Rejected";
+    if (reqStatus === "BURejected" || (reqStatus === "Rejected" && rejectBy === "BU")) return "Pending";
+    if (reqStatus === "BAOnHold" || (reqStatus === "OnHold" && holdBy === "BA")) return "On Hold";
+    if (reqStatus === "BUOnHold" || (reqStatus === "OnHold" && holdBy === "BU")) return "Pending";
+    if (reqStatus === "On Hold") return "On Hold";
     return "Pending";
   };
 
@@ -113,7 +131,6 @@ function MyRequisitions() {
   const closeCancelModal = () => {
     setSelectedRequisition(null);
     setModalError("");
-    setIsCancelling(false);
   };
 
   const getApprovalHistoryMessage = (status) => {
@@ -122,41 +139,22 @@ function MyRequisitions() {
     }
 
     if (status === "BUApproved") {
-      return "⚠️ BU Manager has already approved this. Cancelling will withdraw that approval.";
+      return "❌ This requisition has been approved by BU Manager and cannot be cancelled.";
     }
 
     if (status === "BAApproved") {
-      return "⚠️ Both BU Manager and BA Manager have approved this. Are you sure?";
+      return "❌ This requisition has been fully approved and cannot be cancelled.";
+    }
+
+    if (status === "BUOnHold" || status === "OnHold") {
+      return "⏸ This requisition is currently on hold by the BU Manager. You cannot cancel it while it is under review.";
+    }
+
+    if (status === "BAOnHold") {
+      return "⏸ This requisition is currently on hold by the BA Manager. You cannot cancel it while it is under review.";
     }
 
     return "Approval status unavailable for this requisition.";
-  };
-
-  const handleCancelConfirm = async () => {
-    if (!selectedRequisition) {
-      return;
-    }
-
-    setIsCancelling(true);
-    setModalError("");
-
-    try {
-      const result = await cancelRequisition(selectedRequisition.id);
-      const cancelledRecord = {
-        ...selectedRequisition,
-        ...result,
-        status: "Cancelled"
-      };
-
-      setRequisitions((previousItems) => previousItems.filter((item) => item.id !== selectedRequisition.id));
-      setCancelledRequisitions((previousItems) => [cancelledRecord, ...previousItems]);
-
-      closeCancelModal();
-      showToast("Requisition cancelled successfully");
-    } catch (error) {
-      setModalError(error.message || "Unable to cancel requisition.");
-      setIsCancelling(false);
-    }
   };
 
   const getCancelledDate = (item) => {
@@ -185,6 +183,7 @@ function MyRequisitions() {
     try {
       await deleteRequisitionPermanently(deleteTarget.id);
       setCancelledRequisitions((items) => items.filter((item) => item.id !== deleteTarget.id));
+      setRequisitions((items) => items.filter((item) => item.id !== deleteTarget.id));
       closePermanentDeletePopup();
       showToast("Permanently deleted");
     } catch (error) {
@@ -206,7 +205,8 @@ function MyRequisitions() {
         getCancelledRequisitions()
       ]);
 
-      const scopedActiveData = filterRequisitionsForCurrentUser(activeData, user);
+      const scopedActiveData = filterRequisitionsForCurrentUser(activeData, user)
+        .filter((item) => item.status !== "Cancelled");
       const scopedCancelledData = filterRequisitionsForCurrentUser(cancelledData, user);
 
       let filteredData = scopedActiveData;
@@ -215,7 +215,11 @@ function MyRequisitions() {
       if (statusFilter) {
         filteredData = scopedActiveData.filter((item) => {
           if (statusFilter === "OnHold") {
-            return item.status === "OnHold" || item.status === "On Hold";
+            return item.status === "OnHold" || item.status === "On Hold" || item.status === "BUOnHold" || item.status === "BAOnHold";
+          }
+
+          if (statusFilter === "Rejected") {
+            return item.status === "Rejected" || item.status === "BURejected" || item.status === "BARejected";
           }
 
           return item.status === statusFilter;
@@ -251,8 +255,15 @@ function MyRequisitions() {
         <div className="request-list">
           {requisitions.map((req) => {
             const isExpanded = expandedId === req.id;
-            const buStatus = getBuStatus(req.status);
-            const baStatus = getBaStatus(req.status);
+            const resolvedRejectBy =
+              req.status === "BURejected" ? "BU" :
+              req.status === "BARejected" ? "BA" :
+              req.status === "Rejected" ? getRejectionLevel(req) : null;
+            const resolvedHoldBy =
+              req.status === "BUOnHold" ? "BU" :
+              req.status === "BAOnHold" ? "BA" : null;
+            const buStatus = getBuStatus(req.status, resolvedRejectBy, resolvedHoldBy);
+            const baStatus = getBaStatus(req.status, resolvedRejectBy, resolvedHoldBy);
 
             return (
               <article key={req.id} className="request-card my-req-card">
@@ -273,7 +284,9 @@ function MyRequisitions() {
                   }}
                 >
                   <span className={`status-badge status-${(req.status || "unknown").toLowerCase().replace(/\s+/g, "")}`}>
-                    {formatStatus(req.status) || "Unknown"}
+                    {req.status === "Rejected"
+                      ? (getRejectionLevel(req) ? `${getRejectionLevel(req)} Rejected` : "Rejected")
+                      : (formatStatus(req.status) || "Unknown")}
                   </span>
                   <span style={{ fontWeight: 600 }}>{getDisplayTitle(req)}</span>
                   <span style={{ color: "#475569" }}>{req.department || "-"}</span>
@@ -331,7 +344,7 @@ function MyRequisitions() {
                         <ApprovalComments comments={req.approvalComments} />
 
                         <div className="my-req-actions" style={{ marginTop: "12px" }}>
-                          {req.status === "Pending" || req.status === "BUApproved" || req.status === "OnHold" ? (
+                          {req.status !== "Cancelled" && req.status !== "Closed" && req.status !== "BURejected" && req.status !== "BARejected" && req.status !== "Rejected" ? (
                             <button
                               className="my-req-delete-button"
                               onClick={() => openCancelModal(req)}
@@ -349,7 +362,7 @@ function MyRequisitions() {
                           <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                             <span style={{ width: "10px", height: "10px", borderRadius: "999px", background: "#16a34a", marginTop: "5px", flexShrink: 0 }} />
                             <div>
-                              <p style={{ margin: 0, fontWeight: 600 }}>CU Manager — Submitted — {fmt(req.createdAt)}</p>
+                              <p style={{ margin: 0, fontWeight: 600 }}>CU Manager — Submitted</p>
                             </div>
                           </div>
 
@@ -366,28 +379,30 @@ function MyRequisitions() {
                             />
                             <div>
                               <p style={{ margin: 0, fontWeight: 600 }}>
-                                BU Manager — {buStatus === "Approved" ? "BU Approved" : buStatus} — {buStatus === "Pending" ? "Pending" : fmt(req.updatedAt)}
+                                BU Manager — {buStatus === "Approved" ? "BU Approved" : buStatus}
                               </p>
                             </div>
                           </div>
 
-                          <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                            <span
-                              style={{
-                                width: "10px",
-                                height: "10px",
-                                borderRadius: "999px",
-                                background: getTimelineDotColor(baStatus),
-                                marginTop: "5px",
-                                flexShrink: 0
-                              }}
-                            />
-                            <div>
-                              <p style={{ margin: 0, fontWeight: 600 }}>
-                                BA Manager — {baStatus === "Approved" ? "BA Approved" : baStatus} — {baStatus === "Pending" ? "Pending" : fmt(req.updatedAt)}
-                              </p>
+                          {resolvedRejectBy !== "BU" && req.status !== "BURejected" && req.status !== "BUOnHold" && resolvedHoldBy !== "BU" && (
+                            <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                              <span
+                                style={{
+                                  width: "10px",
+                                  height: "10px",
+                                  borderRadius: "999px",
+                                  background: getTimelineDotColor(baStatus),
+                                  marginTop: "5px",
+                                  flexShrink: 0
+                                }}
+                              />
+                              <div>
+                                <p style={{ margin: 0, fontWeight: 600 }}>
+                                  BA Manager — {baStatus === "Approved" ? "BA Approved" : baStatus}
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -414,69 +429,84 @@ function MyRequisitions() {
             {cancelledRequisitions.length === 0 ? (
               <div className="request-empty">No cancelled requisitions</div>
             ) : (
-              cancelledRequisitions.map((item) => (
-                <article key={item.id} className="request-card my-req-card cancelled-card">
+              cancelledRequisitions.map((item) => {
+                const isCancelledItemExpanded = expandedCancelledId === item.id;
+                return (
+                <article key={item.id} className="request-card my-req-card cancelled-card" style={{ cursor: "pointer" }} onClick={() => setExpandedCancelledId((curr) => (curr === item.id ? null : item.id))}>
+                  <div
+                    style={{
+                      width: "100%",
+                      display: "grid",
+                      gridTemplateColumns: "auto 2fr 1.3fr 1.4fr",
+                      gap: "12px",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      paddingRight: "90px"
+                    }}
+                  >
+                    <span className="status-badge status-cancelled">Cancelled</span>
+                    <span style={{ fontWeight: 600 }}>{getDisplayTitle(item)}</span>
+                    <span style={{ color: "#475569" }}>{item.department || "-"}</span>
+                    <span style={{ color: "#64748b", fontSize: "13px" }}>{fmt(item.createdAt)}</span>
+                  </div>
                   <button
                     type="button"
                     className="cancelled-delete-x"
-                    onClick={() => openPermanentDeletePopup(item)}
+                    onClick={(e) => { e.stopPropagation(); openPermanentDeletePopup(item); }}
                     aria-label="Delete permanently"
                   >
-                    ✕
+                    Delete
                   </button>
 
-                  <div className="request-card-header">
-                    <div>
-                      <h3 className="approval-title">{getDisplayTitle(item)}</h3>
-                      <p className="my-req-subtitle">Requisition ID #{item.id}</p>
+                  {isCancelledItemExpanded && (
+                    <div style={{ borderTop: "1px solid #e2e8f0", marginTop: "10px", paddingTop: "14px" }}>
+                      <div className="request-detail-grid">
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Department</p>
+                          <p className="request-detail-value">{item.department || "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Skillset</p>
+                          <p className="request-detail-value">{item.skillSet || item.skillset || "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Experience</p>
+                          <p className="request-detail-value">{item.experienceLevel || "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Positions</p>
+                          <p className="request-detail-value">{item.numberOfPositions ?? "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Location</p>
+                          <p className="request-detail-value">{item.location || "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Hire By Date</p>
+                          <p className="request-detail-value">{fmt(item.hireByDate)}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Customer Name</p>
+                          <p className="request-detail-value">{item.customerName || "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Comments</p>
+                          <p className="request-detail-value">{item.comments || "-"}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Date Cancelled</p>
+                          <p className="request-detail-value">{fmt(getCancelledDate(item))}</p>
+                        </div>
+                        <div className="request-detail-item">
+                          <p className="request-detail-label">Submitted On</p>
+                          <p className="request-detail-value">{fmt(item.createdAt)}</p>
+                        </div>
+                      </div>
                     </div>
-                    <span className="status-badge status-cancelled">Cancelled</span>
-                  </div>
-
-                  <div className="request-detail-grid">
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Department</p>
-                      <p className="request-detail-value">{item.department || "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Skillset</p>
-                      <p className="request-detail-value">{item.skillSet || item.skillset || "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Experience</p>
-                      <p className="request-detail-value">{item.experienceLevel || "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Positions</p>
-                      <p className="request-detail-value">{item.numberOfPositions ?? "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Location</p>
-                      <p className="request-detail-value">{item.location || "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Hire By Date</p>
-                      <p className="request-detail-value">{fmt(item.hireByDate)}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Customer Name</p>
-                      <p className="request-detail-value">{item.customerName || "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Comments</p>
-                      <p className="request-detail-value">{item.comments || "-"}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Date Cancelled</p>
-                      <p className="request-detail-value">{fmt(getCancelledDate(item))}</p>
-                    </div>
-                    <div className="request-detail-item">
-                      <p className="request-detail-label">Submitted On</p>
-                      <p className="request-detail-value">{fmt(item.createdAt)}</p>
-                    </div>
-                  </div>
+                  )}
                 </article>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -510,17 +540,8 @@ function MyRequisitions() {
                 type="button"
                 className="cancel-secondary-button"
                 onClick={closeCancelModal}
-                disabled={isCancelling}
               >
                 Go Back
-              </button>
-              <button
-                type="button"
-                className="cancel-primary-button"
-                onClick={handleCancelConfirm}
-                disabled={isCancelling}
-              >
-                {isCancelling ? "Cancelling..." : "Yes, Cancel It"}
               </button>
             </div>
           </div>

@@ -52,7 +52,7 @@ function RequisitionInlineDetails({
   actions
 }) {
   const user = JSON.parse(localStorage.getItem("user"));
-  const isBuOrBa = user?.role === "BU_MANAGER" || user?.role === "BA_MANAGER";
+  const isBuOrBa = user?.role === "BU_MANAGER" || user?.role === "BA_MANAGER" || user?.role === "Recruiter";
 
   useEffect(() => {
     if (isBuOrBa && requisition) {
@@ -78,9 +78,6 @@ function RequisitionInlineDetails({
             {isBuOrBa && (
               <div style={{ marginBottom: "12px" }}>
                 <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Submitted by: {submittedBy}</p>
-                <p style={{ fontSize: "18px", fontWeight: 600, color: "#0f172a", margin: "4px 0 0" }}>
-                  {submittedBy}
-                </p>
                 <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0" }}>
                   {fmt(requisition?.createdAt)}
                 </p>
@@ -98,7 +95,7 @@ function RequisitionInlineDetails({
 
             <ApprovalComments
               comments={comments || requisition.approvalComments}
-              title={isBuOrBa ? "CU Manager Comments" : "Approval Comments"}
+              title="Approval Comments"
             />
 
             {actions ? <div className="approval-actions">{actions}</div> : null}

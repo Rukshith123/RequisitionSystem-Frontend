@@ -1,9 +1,11 @@
 import "./Header.css";
+import { logoutUser } from "../services/api";
 
 function Header() {
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser();
     localStorage.removeItem("user");
     window.location.href = "/";
   };

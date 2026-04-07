@@ -65,7 +65,7 @@ function RequisitionDetails() {
     if (normalizedStatus === "pending") return "rd-status-pending";
     if (normalizedStatus === "buapproved") return "rd-status-buapproved";
     if (normalizedStatus === "l3approved") return "rd-status-l3approved";
-    if (normalizedStatus === "rejected") return "rd-status-rejected";
+    if (normalizedStatus === "rejected" || normalizedStatus === "burejected" || normalizedStatus === "barejected") return "rd-status-rejected";
     if (normalizedStatus === "closed") return "rd-status-closed";
     return "rd-status-unknown";
   };

@@ -36,7 +36,7 @@ function Dashboard() {
     data.forEach((item) => {
       if (item.status === "Pending") pending++;
       if (item.status === "BUApproved" || item.status === "L3Approved") approved++;
-      if (item.status === "Rejected") rejected++;
+      if (item.status === "Rejected" || item.status === "BURejected" || item.status === "BARejected") rejected++;
     });
 
     setStats({ total, pending, approved, rejected });

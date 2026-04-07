@@ -17,7 +17,7 @@ import {
   withApprovalComments
 } from "../services/approvalComments";
 import { formatStatus } from "../utils";
-import { sortByLatestRequisition } from "../services/approvalHelpers";
+import { sortByLatestRequisition, normalizeApprovalLevel } from "../services/approvalHelpers";
 import "../styles/Dashboard.css";
 import "../styles/approvals.css";
 
@@ -49,7 +49,7 @@ function Approvals() {
       ? "Pending Final Approvals"
       : "Pending BU Approvals";
   const pageDescription = isOnHoldView
-    ? "Review requisitions currently on hold and either approve them now or keep them on hold."
+    ? "Review requisitions currently on hold and either approve them now or reject them."
     : user?.role === "BA_MANAGER"
       ? "Review final-stage requisitions, validate readiness, and keep last-step approvals moving cleanly."
       : "Review incoming business unit requisitions, act quickly on pending requests, and keep approvals on track.";
@@ -85,9 +85,30 @@ function Approvals() {
 
       if (isOnHoldView) {
         const approvals = await getMyApprovals(user.id);
-        const onHoldApprovals = (approvals || []).filter(
+        const expectedLevel = getApprovalLevel();
+
+        // Group all approval records by requisitionId and keep only the latest per requisition.
+        // This handles backends that create new records on approve/reject instead of updating
+        // the existing OnHold record — the old OnHold record would otherwise keep reappearing.
+        const levelApprovals = (approvals || []).filter(
+          (item) => normalizeApprovalLevel(item.approvalLevel) === expectedLevel
+        );
+
+        const latestByRequisition = Object.values(
+          levelApprovals.reduce((acc, item) => {
+            const key = item.requisitionId || item.id;
+            const existing = acc[key];
+            if (!existing || new Date(item.actionDate) > new Date(existing.actionDate)) {
+              acc[key] = item;
+            }
+            return acc;
+          }, {})
+        );
+
+        const onHoldApprovals = latestByRequisition.filter(
           (item) => item.status === "OnHold" || item.status === "On Hold"
         );
+
         const detailedOnHold = await Promise.all(
           onHoldApprovals.map(async (item) => {
             const requisitionId = item.requisitionId || item.id;
@@ -116,7 +137,13 @@ function Approvals() {
       }
 
       const result = await getPendingApprovals(user.role);
-      const sorted = sortByLatestRequisition(result || []);
+
+      // BU managers only see requisitions for their own department
+      const filtered = user.role === "BU_MANAGER" && user.department && user.department !== "Both"
+        ? (result || []).filter((req) => req.department === user.department)
+        : (result || []);
+
+      const sorted = sortByLatestRequisition(filtered);
       setData(withApprovalComments(sorted));
 
       if (expandedId && !sorted.some((item) => item.id === expandedId)) {
@@ -172,24 +199,17 @@ function Approvals() {
     }
   };
 
-  const patchStatusLocally = (id, nextStatus) => {
-    setData((previous) => previous.map((entry) => (
-      entry.id === id ? { ...entry, status: nextStatus } : entry
-    )));
-
+  const removeItemLocally = (id) => {
+    setData((previous) => previous.filter((entry) => entry.id !== id));
     setExpandedDetails((previous) => {
-      if (!previous[id]) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        [id]: {
-          ...previous[id],
-          status: nextStatus
-        }
-      };
+      const updated = { ...previous };
+      delete updated[id];
+      return updated;
     });
+    if (expandedId === id) {
+      setExpandedId(null);
+      setExpandedError("");
+    }
   };
 
   const handleApprove = async (item) => {
@@ -221,12 +241,8 @@ function Approvals() {
         actionDate: result?.actionDate || new Date().toISOString()
       });
 
-      patchStatusLocally(itemId, user?.role === "BA_MANAGER" ? "BAApproved" : "BUApproved");
+      removeItemLocally(itemId);
       setMessage("✅ Request approved successfully");
-
-      if (expandedId === itemId) {
-        setExpandedId(null);
-      }
     } catch (error) {
       setMessage(error.message || "Unable to approve requisition");
     } finally {
@@ -260,15 +276,8 @@ function Approvals() {
     });
 
     setLoadingId(null);
-
+    removeItemLocally(id);
     setMessage("❌ Request rejected");
-
-    if (expandedId === id) {
-      setExpandedId(null);
-    }
-
-    fetchApprovals();
-
     setTimeout(() => setMessage(""), 3000);
   };
 
@@ -298,7 +307,7 @@ function Approvals() {
         actionDate: result?.actionDate || new Date().toISOString()
       });
 
-      patchStatusLocally(itemId, "OnHold");
+      removeItemLocally(itemId);
       setMessage("⏸ Requisition moved to On Hold");
     } catch (error) {
       setMessage(error.message || "Unable to put requisition on hold");
@@ -310,13 +319,33 @@ function Approvals() {
 
   const handleUnholdAndApprove = async (item) => {
     const user = JSON.parse(localStorage.getItem("user"));
-    const actionId = item.approvalId || item.requisitionId || item.id;
+    const actionId = item.requisitionId || item.id;
+
+    const confirmAction = window.confirm("Are you sure you want to approve this on hold requisition?");
+    if (!confirmAction) return;
+
+    const approvalComment = window.prompt("Enter comments to approve this requisition:");
+    if (approvalComment === null) return;
+
+    const comments = approvalComment.trim() || "Approved";
 
     setLoadingId(item.id);
 
     try {
-      await approveOnHoldRequisition(actionId, parseInt(user.id, 10));
-      patchStatusLocally(item.id, user?.role === "BA_MANAGER" ? "BAApproved" : "BUApproved");
+      const result = await approveOnHoldRequisition(actionId, parseInt(user.id, 10), comments);
+
+      saveApprovalComment({
+        requisitionId: item.requisitionId || item.id,
+        approverId: user.id,
+        approverName: user.username,
+        approverRole: user.role,
+        approvalLevel: getApprovalLevel(),
+        status: "Approved",
+        comments,
+        actionDate: result?.actionDate || new Date().toISOString()
+      });
+
+      removeItemLocally(item.id);
       setMessage("✅ On hold requisition approved successfully");
       await fetchApprovals();
     } catch (error) {
@@ -339,10 +368,29 @@ function Approvals() {
     const user = JSON.parse(localStorage.getItem("user"));
     const actionId = item.requisitionId || item.id;
 
+    const confirmAction = window.confirm("Are you sure you want to reject this on hold requisition?");
+    if (!confirmAction) return;
+
+    const comments = collectComment("Reject");
+    if (comments === null || comments === "") return;
+
     setLoadingId(item.id);
 
     try {
-      await rejectRequisition(actionId, parseInt(user.id, 10), "");
+      const result = await rejectRequisition(actionId, parseInt(user.id, 10), comments);
+
+      saveApprovalComment({
+        requisitionId: item.requisitionId || item.id,
+        approverId: user.id,
+        approverName: user.username,
+        approverRole: user.role,
+        approvalLevel: getApprovalLevel(),
+        status: "Rejected",
+        comments,
+        actionDate: result?.actionDate || new Date().toISOString()
+      });
+
+      removeItemLocally(item.id);
       setMessage("❌ On hold requisition rejected");
       await fetchApprovals();
     } catch (error) {
@@ -416,14 +464,6 @@ function Approvals() {
                         disabled={loadingId === item.id}
                       >
                         {loadingId === item.id ? "Processing..." : "Unhold & Approve"}
-                      </button>
-
-                      <button
-                        className="approval-action-button approval-action-hold"
-                        onClick={() => handleKeepOnHold(item.id)}
-                        disabled={loadingId === item.id}
-                      >
-                        Keep on Hold
                       </button>
 
                       <button

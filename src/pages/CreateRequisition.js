@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
-import { createRequisition } from "../services/api";
+import { createRequisition, generateJd } from "../services/api";
 import Layout from "../components/Layout";
 import "../styles/createRequisition.css";
 
@@ -41,6 +41,25 @@ function CreateRequisition() {
     comments: "",
     jdContent: ""
   });
+  const [isGeneratingJd, setIsGeneratingJd] = useState(false);
+  const [jdError, setJdError] = useState("");
+
+  const handleGenerateJd = async () => {
+    if (!form.title || !form.department || !form.skillset || !form.experienceLevel) {
+      setJdError("Please fill in Title, Department, Skillset and Experience Level before generating.");
+      return;
+    }
+    setJdError("");
+    setIsGeneratingJd(true);
+    try {
+      const html = await generateJd(form);
+      setForm((prev) => ({ ...prev, jdContent: html }));
+    } catch (error) {
+      setJdError(error.message || "Failed to generate JD. Please try again.");
+    } finally {
+      setIsGeneratingJd(false);
+    }
+  };
 
   const handleChange = (e) => {
     setForm({
@@ -219,7 +238,18 @@ function CreateRequisition() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="jdContent">Job Description</label>
+              <div className="jd-field-header">
+                <label htmlFor="jdContent">Job Description</label>
+                <button
+                  type="button"
+                  className="generate-jd-button"
+                  onClick={handleGenerateJd}
+                  disabled={isGeneratingJd}
+                >
+                  {isGeneratingJd ? "Generating..." : "✨ Generate JD"}
+                </button>
+              </div>
+              {jdError && <p className="jd-error-message">{jdError}</p>}
               <ReactQuill
                 id="jdContent"
                 className="jd-editor"

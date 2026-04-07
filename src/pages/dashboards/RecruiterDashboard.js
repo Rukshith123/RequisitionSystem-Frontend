@@ -29,15 +29,17 @@ function RecruiterDashboard() {
     try {
       const approvedData = await getApprovedRequisitions();
       console.log("Recruiter approved requisitions response:", approvedData);
-      setApprovedCount(Array.isArray(approvedData) ? approvedData.length : 0);
+      const approvedList = Array.isArray(approvedData) ? approvedData : [];
+      setApprovedCount(approvedList.length);
 
       const closedData = await getClosedRequisitions();
-      setClosedCount(closedData.totalClosed || closedData.requisitions?.length || 0);
+      // Handle both plain array and wrapped object responses
+      const closedList = Array.isArray(closedData)
+        ? closedData
+        : (closedData.requisitions || []);
+      setClosedCount(closedList.length);
 
-      const combinedHistory = [
-        ...(approvedData || []),
-        ...(closedData.requisitions || [])
-      ]
+      const combinedHistory = [...approvedList, ...closedList]
         .sort((left, right) => {
           const leftDate = new Date(left.updatedAt || left.createdAt || 0).getTime();
           const rightDate = new Date(right.updatedAt || right.createdAt || 0).getTime();

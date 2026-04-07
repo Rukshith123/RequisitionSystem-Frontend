@@ -54,7 +54,7 @@ function ApprovedRequests() {
   const getBaReviewBadge = (status) => {
     const normalizedStatus = status === "L3Approved" ? "BAApproved" : status;
 
-    if (normalizedStatus === "BAApproved") {
+    if (normalizedStatus === "BAApproved" || normalizedStatus === "Closed") {
       return {
         label: "BA Approved",
         background: "#dcfce7",
@@ -62,7 +62,7 @@ function ApprovedRequests() {
       };
     }
 
-    if (normalizedStatus === "Rejected") {
+    if (normalizedStatus === "Rejected" || normalizedStatus === "BARejected") {
       return {
         label: "BA Rejected",
         background: "#fee2e2",
@@ -70,7 +70,7 @@ function ApprovedRequests() {
       };
     }
 
-    if (normalizedStatus === "OnHold" || normalizedStatus === "On Hold") {
+    if (normalizedStatus === "OnHold" || normalizedStatus === "On Hold" || normalizedStatus === "BAOnHold") {
       return {
         label: "BA On Hold",
         background: "#fff7ed",
@@ -148,7 +148,18 @@ function ApprovedRequests() {
         })
       );
 
-      setData(withApprovalComments(sortByLatestRequisition(detailed)));
+      // Deduplicate by requisitionId — keep only the latest entry per requisition
+      const deduped = Object.values(
+        detailed.reduce((acc, item) => {
+          const existing = acc[item.id];
+          if (!existing || new Date(item.actionDate) > new Date(existing.actionDate)) {
+            acc[item.id] = item;
+          }
+          return acc;
+        }, {})
+      );
+
+      setData(withApprovalComments(sortByLatestRequisition(deduped)));
 
     } catch (error) {
       console.error(error);
@@ -226,13 +237,6 @@ function ApprovedRequests() {
                     <p className="approval-summary-meta">
                       Req #{item.id} | {item.department || "-"}
                     </p>
-                    {user.role === "Recruiter" && (
-                      <p className="approval-summary-meta">
-                        Created By: {item.createdBy || item.createdByUsername || item.creator?.username || item.creatorName || "-"}
-                        {" | "}Location: {item.location || "-"}
-                        {" | "}Positions: {item.numberOfPositions ?? "-"}
-                      </p>
-                    )}
                   </div>
                   {user.role === "Recruiter" ? (
                     <span className={`status-badge status-${(item.status || item.approvalStatus || "unknown").toLowerCase().replace(/\s+/g, "")}`}>

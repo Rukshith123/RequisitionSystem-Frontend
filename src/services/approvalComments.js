@@ -5,7 +5,6 @@ const buildCommentKey = (entry) => {
     entry.requisitionId,
     entry.approvalLevel || "",
     entry.status || "",
-    entry.approverId || "",
     (entry.comments || "").trim()
   ].join("::");
 };

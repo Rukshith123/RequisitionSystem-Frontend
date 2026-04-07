@@ -21,7 +21,8 @@ function BUDashboard() {
   const [stats, setStats] = useState({
     pending: 0,
     approved: 0,
-    rejected: 0
+    rejected: 0,
+    onHold: 0
     });
   const [history, setHistory] = useState([]);
   const [selectedJDRequisition, setSelectedJDRequisition] = useState(null);
@@ -29,23 +30,7 @@ function BUDashboard() {
     fetchStats();
     }, []);
 
-    const getBuDepartment = (user) => {
-      if (user?.department) {
-        return user.department;
-      }
-
-      if (user?.username === "madan") {
-        return "Nexer EA";
-      }
-
-      if (user?.username === "deepa") {
-        return "Nexer Pvt Ltd";
-      }
-
-      return "";
-    };
-
-    const fetchStats = async () => {
+  const fetchStats = async () => {
   try {
     const user = JSON.parse(localStorage.getItem("user"));
 
@@ -53,21 +38,18 @@ function BUDashboard() {
     const pendingData = await getPendingApprovals(user.role);
     console.log("BU pending requisitions response:", pendingData);
 
-    const department = getBuDepartment(user);
-    const filteredPendingData = (pendingData || []).filter((req) => {
-      if (!department) {
-        return true;
-      }
-
-      return req.creator?.department === department || req.creatorDepartment === department;
-    });
-    const pendingCount = filteredPendingData.length;
+    // Filter by department if available (BU managers are scoped to their department)
+    const filtered = user.department && user.department !== "Both"
+      ? (pendingData || []).filter((req) => req.department === user.department)
+      : (pendingData || []);
+    const pendingCount = filtered.length;
 
     // ✅ 2. Get approvals done by THIS user
     const approvalsData = await getMyApprovals(user.id);
 
     let approved = 0;
     let rejected = 0;
+    let onHold = 0;
 
     const buHistory = approvalsData.filter((item) => item.approvalLevel === "BU");
 
@@ -77,6 +59,9 @@ function BUDashboard() {
       }
       if (item.status === "Rejected" && item.approvalLevel === "BU") {
         rejected++;
+      }
+      if ((item.status === "OnHold" || item.status === "On Hold") && item.approvalLevel === "BU") {
+        onHold++;
       }
     });
 
@@ -106,7 +91,8 @@ function BUDashboard() {
     setStats({
       pending: pendingCount,
       approved,
-      rejected
+      rejected,
+      onHold
     });
 
   } catch (error) {
@@ -139,6 +125,11 @@ function BUDashboard() {
         <div className="stat-card stat-rejected" onClick={() => navigate("/rejected")}>
           <p className="stat-title">REJECTED</p>
           <h2 className="stat-value">{stats.rejected}</h2>
+        </div>
+
+        <div className="stat-card stat-hold" onClick={() => navigate("/approvals?status=OnHold")}>
+          <p className="stat-title">ON HOLD</p>
+          <h2 className="stat-value">{stats.onHold}</h2>
         </div>
       </div>
 

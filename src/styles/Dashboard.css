@@ -236,6 +236,16 @@
   border-left: 6px solid #0f766e;
 }
 
+/* ON HOLD */
+.stat-hold {
+  border-left: 6px solid #fb8c00;
+}
+
+/* ON HOLD */
+.stat-hold {
+  border-left: 6px solid #fb8c00;
+}
+
 /* REJECTED */
 .stat-rejected {
   border-left: 6px solid #e53935;
@@ -357,7 +367,27 @@
   color: #ffffff !important;
 }
 
+.status-badge.status-burejected {
+  background: #dc2626;
+  color: #ffffff !important;
+}
+
+.status-badge.status-barejected {
+  background: #dc2626;
+  color: #ffffff !important;
+}
+
 .status-badge.status-onhold {
+  background: #f59e0b;
+  color: #78350f;
+}
+
+.status-badge.status-buonhold {
+  background: #f59e0b;
+  color: #78350f;
+}
+
+.status-badge.status-baonhold {
   background: #f59e0b;
   color: #78350f;
 }
@@ -512,16 +542,15 @@
 
 .cancelled-delete-x {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
   border: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
+  padding: 6px 14px;
+  border-radius: 6px;
   background: #dc2626;
   color: #ffffff;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
 }
 

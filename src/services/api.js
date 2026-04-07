@@ -1,22 +1,15 @@
 const BASE_URL = "http://localhost:5291/api";
 
-const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
-
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`
-  };
-};
+// Token is stored in an httpOnly cookie and sent automatically by the browser.
+// All requests use credentials: "include" so the cookie is included cross-origin.
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export const loginUser = async (username, password) => {
-  const res = await fetch("http://localhost:5291/api/auth/login", {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
-    headers: getAuthHeader(),
-    body: JSON.stringify({
-      username,
-      password
-    })
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify({ username, password })
   });
 
   if (!res.ok) {
@@ -26,26 +19,30 @@ export const loginUser = async (username, password) => {
   return res.json();
 };
 
+export const logoutUser = async () => {
+  await fetch(`${BASE_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include"
+  });
+};
+
 export const getPendingApprovals = async (role) => {
-  const res = await fetch(
-    `${BASE_URL}/approvals/pending?role=${role}`,
-    {
-      headers: getAuthHeader()
-    }
-  );
+  const res = await fetch(`${BASE_URL}/approvals/pending?role=${role}`, {
+    credentials: "include"
+  });
 
   if (!res.ok) throw new Error("Failed to fetch pending approvals");
 
   return res.json();
 };
 
-
 export const createRequisition = async (data, createdByUserId) => {
   const response = await fetch(
     `${BASE_URL}/requisitions?createdBy=${Number(createdByUserId)}`,
     {
       method: "POST",
-      headers: getAuthHeader(),
+      headers: JSON_HEADERS,
+      credentials: "include",
       body: JSON.stringify(data)
     }
   );
@@ -58,7 +55,7 @@ export const cancelRequisition = async (requisitionId) => {
     `${BASE_URL}/requisitions/${requisitionId}/cancel`,
     {
       method: "PUT",
-      headers: getAuthHeader()
+      credentials: "include"
     }
   );
 
@@ -83,7 +80,7 @@ export const cancelRequisition = async (requisitionId) => {
 
 export const getAllRequisitions = async () => {
   const response = await fetch(`${BASE_URL}/requisitions`, {
-    headers: getAuthHeader()
+    credentials: "include"
   });
 
   if (!response.ok) {
@@ -95,7 +92,7 @@ export const getAllRequisitions = async () => {
 
 export const getCancelledRequisitions = async () => {
   const response = await fetch(`${BASE_URL}/requisitions/cancelled`, {
-    headers: getAuthHeader()
+    credentials: "include"
   });
 
   if (!response.ok) {
@@ -108,44 +105,46 @@ export const getCancelledRequisitions = async () => {
 export const deleteRequisitionPermanently = async (requisitionId) => {
   const response = await fetch(`${BASE_URL}/requisitions/${requisitionId}/permanent`, {
     method: "DELETE",
-    headers: getAuthHeader()
+    credentials: "include"
   });
 
   if (!response.ok) {
     let message = "Failed to permanently delete requisition";
 
     try {
-      const payload = await response.json();
-      message = payload?.message || payload?.error || message;
-    } catch (error) {
-      const fallbackText = await response.text();
-      if (fallbackText) {
-        message = fallbackText;
+      const text = await response.text();
+      if (text) {
+        const payload = JSON.parse(text);
+        message = payload?.message || payload?.error || message;
       }
+    } catch {
+      // use default message
     }
 
     throw new Error(message);
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 };
-
 
 export const getMyRequisitions = async (createdByUsername) => {
   const response = await fetch(
-    `${BASE_URL}/requisitions/my?createdBy=${encodeURIComponent(createdByUsername)}`, {
-     headers: getAuthHeader()
-     });
+    `${BASE_URL}/requisitions/my?createdBy=${encodeURIComponent(createdByUsername)}`,
+    { credentials: "include" }
+  );
 
   return response.json();
 };
 
 export const getMyApprovals = async (userId) => {
   const res = await fetch(
-    `http://localhost:5291/api/approvals/my?approverId=${userId}`,
-    {
-     headers: getAuthHeader()
-    });
+    `${BASE_URL}/approvals/my?approverId=${userId}`,
+    { credentials: "include" }
+  );
 
   if (!res.ok) {
     throw new Error("Failed to fetch approvals");
@@ -155,36 +154,41 @@ export const getMyApprovals = async (userId) => {
 };
 
 export const approveRequisition = async (id, approverId, comments) => {
-  const res = await fetch(
-    `http://localhost:5291/api/approvals/${id}/approve`,
-    {
-      method: "POST",
-      headers: getAuthHeader(),
-      body: JSON.stringify({
-        approverId: Number(approverId),
-        comments
-      })
-    }
-  );
+  const res = await fetch(`${BASE_URL}/approvals/${id}/approve`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify({ approverId: Number(approverId), comments })
+  });
 
   if (!res.ok) throw new Error("Approve failed");
 
   return res.json();
 };
 
-export const approveOnHoldRequisition = async (id, approverId) => {
-  const res = await fetch(
-    `${BASE_URL}/approvals/${id}/approve`,
-    {
-      method: "POST",
-      headers: getAuthHeader(),
-      body: JSON.stringify({
-        approverId: Number(approverId)
-      })
-    }
-  );
+export const approveOnHoldRequisition = async (id, approverId, comments) => {
+  const res = await fetch(`${BASE_URL}/approvals/${id}/approve`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify({ approverId: Number(approverId), comments })
+  });
 
-  if (!res.ok) throw new Error("Approve failed");
+  if (!res.ok) {
+    let message = "Approve failed";
+
+    try {
+      const payload = await res.json();
+      message = payload?.message || payload?.error || message;
+    } catch (error) {
+      const text = await res.text();
+      if (text) {
+        message = text;
+      }
+    }
+
+    throw new Error(message);
+  }
 
   try {
     return await res.json();
@@ -194,32 +198,39 @@ export const approveOnHoldRequisition = async (id, approverId) => {
 };
 
 export const rejectRequisition = async (id, approverId, comments) => {
-  const res = await fetch(
-    `http://localhost:5291/api/approvals/${id}/reject`,
-    {
-      method: "POST",
-      headers: getAuthHeader(),
-      body: JSON.stringify({
-        approverId,
-        comments
-      })
-    }
-  );
+  const res = await fetch(`${BASE_URL}/approvals/${id}/reject`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify({ approverId, comments })
+  });
 
-  if (!res.ok) throw new Error("Reject failed");
+  if (!res.ok) {
+    let message = "Reject failed";
+
+    try {
+      const payload = await res.json();
+      message = payload?.message || payload?.error || message;
+    } catch (error) {
+      const text = await res.text();
+      if (text) {
+        message = text;
+      }
+    }
+
+    throw new Error(message);
+  }
 
   return res.json();
 };
 
 export const holdRequisition = async (id, approverId, comments) => {
-  const res = await fetch(
-    `${BASE_URL}/approvals/${id}/hold`,
-    {
-      method: "PUT",
-      headers: getAuthHeader(),
-      body: JSON.stringify({ approverId: Number(approverId), comments })
-    }
-  );
+  const res = await fetch(`${BASE_URL}/approvals/${id}/hold`, {
+    method: "PUT",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify({ approverId: Number(approverId), comments })
+  });
 
   if (!res.ok) {
     let message = "Hold failed";
@@ -245,24 +256,18 @@ export const holdRequisition = async (id, approverId, comments) => {
 };
 
 export const closeRequisition = async (id) => {
-  const res = await fetch(
-    `http://localhost:5291/api/recruiter/requisitions/${id}/close`,
-    {
-      method: "POST",
-      headers: getAuthHeader()
-    }
-  );
+  const res = await fetch(`${BASE_URL}/recruiter/requisitions/${id}/close`, {
+    method: "POST",
+    credentials: "include"
+  });
 
   return res.json();
 };
 
 export const getApprovedRequisitions = async () => {
-  const res = await fetch(
-    `${BASE_URL}/recruiter/requisitions`,
-    {
-      headers: getAuthHeader()
-    }
-  );
+  const res = await fetch(`${BASE_URL}/recruiter/requisitions`, {
+    credentials: "include"
+  });
 
   if (!res.ok) throw new Error("Failed to fetch approved requisitions");
 
@@ -270,25 +275,51 @@ export const getApprovedRequisitions = async () => {
 };
 
 export const getClosedRequisitions = async () => {
-  const res = await fetch(
-    `${BASE_URL}/recruiter/requisitions/closed`,
-    {
-      headers: getAuthHeader()
-    }
-  );
+  const res = await fetch(`${BASE_URL}/recruiter/requisitions/closed`, {
+    credentials: "include"
+  });
 
   if (!res.ok) throw new Error("Failed to fetch closed requisitions");
 
   return res.json();
 };
 
-export const getRequisitionById = async (requisitionId) => {
-  const res = await fetch(
-    `${BASE_URL}/requisitions/${requisitionId}`,
-    {
-      headers: getAuthHeader()
+export const generateJd = async (formData) => {
+  const res = await fetch(`${BASE_URL}/jd/generate`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify({
+      title: formData.title,
+      department: formData.department,
+      skillset: formData.skillset,
+      experienceLevel: formData.experienceLevel,
+      numberOfPositions: Number(formData.numberOfPositions) || 1,
+      location: formData.location,
+      customerName: formData.customerName,
+      comments: formData.comments
+    })
+  });
+
+  if (!res.ok) {
+    let message = "Failed to generate JD";
+    try {
+      const payload = await res.json();
+      message = payload?.error || payload?.details || message;
+    } catch {
+      // use default message
     }
-  );
+    throw new Error(message);
+  }
+
+  const data = await res.json();
+  return data.jdContent;
+};
+
+export const getRequisitionById = async (requisitionId) => {
+  const res = await fetch(`${BASE_URL}/requisitions/${requisitionId}`, {
+    credentials: "include"
+  });
 
   if (!res.ok) throw new Error(`Failed to fetch requisition (${res.status})`);
 

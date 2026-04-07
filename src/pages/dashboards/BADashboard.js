@@ -27,7 +27,8 @@ function BADashboard() {
   const [stats, setStats] = useState({
     pending: 0,
     approved: 0,
-    rejected: 0
+    rejected: 0,
+    onHold: 0
     });
   const [history, setHistory] = useState([]);
   const [selectedJDRequisition, setSelectedJDRequisition] = useState(null);
@@ -50,6 +51,7 @@ function BADashboard() {
       const baHistory = approvals.filter((item) => isFinalApprovalLevel(item.approvalLevel));
       const approved = baHistory.filter((item) => isApprovedStatus(item.status)).length;
       const rejected = baHistory.filter((item) => isRejectedStatus(item.status)).length;
+      const onHold = baHistory.filter((item) => item.status === "OnHold" || item.status === "On Hold").length;
 
       const detailedHistory = await Promise.all(
         sortByLatestRequisition(baHistory)
@@ -76,7 +78,8 @@ function BADashboard() {
       setStats({
         pending: pendingCount,
         approved,
-        rejected
+        rejected,
+        onHold
       });
 
     } catch (error) {
@@ -118,6 +121,14 @@ function BADashboard() {
         >
           <p className="stat-title">REJECTED</p>
           <h2 className="stat-value">{stats.rejected}</h2>
+        </div>
+
+        <div
+          className="stat-card stat-hold"
+          onClick={() => navigate("/approvals?status=OnHold")}
+        >
+          <p className="stat-title">ON HOLD</p>
+          <h2 className="stat-value">{stats.onHold}</h2>
         </div>
 
       </div>
